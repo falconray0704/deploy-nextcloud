@@ -1,0 +1,76 @@
+version: '3.4'
+
+services:
+  nextcloud_db:
+    image: postgres
+    container_name: nextcloud_db
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - "${SERVICE_DATA_ROOT_PATH}/db:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_DB_FILE: "/run/secrets/postgres_db"
+      POSTGRES_USER_FILE: "/run/secrets/postgres_user"
+      POSTGRES_PASSWORD_FILE: "/run/secrets/postgres_password"
+    networks:
+      - "nginx-proxy"
+    secrets:
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+  nextcloud:
+    image: nextcloud
+    container_name: nextcloud
+    restart: always
+    expose:
+      - "${VIRTUAL_PORT:-8080}"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - "${SERVICE_DATA_ROOT_PATH}/nextcloud:/var/www/html"
+    environment:
+      POSTGRES_HOST: "nextcloud_db"
+      POSTGRES_DB_FILE: "/run/secrets/postgres_db"
+      POSTGRES_USER_FILE: "/run/secrets/postgres_user"
+      POSTGRES_PASSWORD_FILE: "/run/secrets/postgres_password"
+      NEXTCLOUD_ADMIN_PASSWORD_FILE: "/run/secrets/nextcloud_admin_password"
+      NEXTCLOUD_ADMIN_USER_FILE: "/run/secrets/nextcloud_admin_user"
+      NEXTCLOUD_TRUSTED_DOMAINS: "${VIRTUAL_HOST:-foo.bar.com}"
+      OVERWRITEPROTOCOL: "https"
+#      OVERWRITECLIURL: "https://nextcloud.olaf.work"
+      HTTPS_METHOD: nohttps
+#      LETSENCRYPT_HOST: "${LETSENCRYPT_HOST:-bar.com}"
+      VIRTUAL_PORT: "${VIRTUAL_PORT:-8080}"
+      VIRTUAL_HOST: "${VIRTUAL_HOST:-foo.bar.com}"
+      VIRTUAL_PATH: "${VIRTUAL_PATH:-/}"
+    networks:
+      - "nginx-proxy"
+    depends_on:
+      - nextcloud_db
+    secrets:
+      - nextcloud_admin_password
+      - nextcloud_admin_user
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+
+secrets:
+  nextcloud_admin_password:
+    file: ${SERVICE_DATA_ROOT_PATH}/secrets/nextcloud_admin_password.txt # put admin password in this file
+  nextcloud_admin_user:
+    file: ${SERVICE_DATA_ROOT_PATH}/secrets/nextcloud_admin_user.txt # put admin username in this file
+  postgres_db:
+    file: ${SERVICE_DATA_ROOT_PATH}/secrets/postgres_db.txt # put postgresql db name in this file
+  postgres_password:
+    file: ${SERVICE_DATA_ROOT_PATH}/secrets/postgres_password.txt # put postgresql password in this file
+  postgres_user:
+    file: ${SERVICE_DATA_ROOT_PATH}/secrets/postgres_user.txt # put postgresql username in this file
+    
+networks:
+  nginx-proxy:
+    external: true
+    name: "nginx-proxy"
+
